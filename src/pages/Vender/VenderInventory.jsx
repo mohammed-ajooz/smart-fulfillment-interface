@@ -1,40 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Edit3, Check, X, PlusCircle } from "lucide-react";
+import axiosInstance from "../../api/axiosInstance"; // ✅ تأكد من المسار الصحيح
 
 const VenderInventory = () => {
-  // ✅ قائمة الفئات (يمكن لاحقًا جلبها من API)
-  const categories = [
-    "Accessories",
-    "Chargers",
-    "Cables",
-    "Batteries",
-    "Smart Devices",
-    "Home Electronics",
-  ];
-
-  const [inventory, setInventory] = useState([
-    {
-      id: 1,
-      sku: "SKU-001",
-      name: "Wireless Mouse",
-      category: "Accessories",
-      price: 8.5,
-      qty: 120,
-      status: "Active",
-      updatedAt: "2025-10-17 14:32",
-    },
-    {
-      id: 2,
-      sku: "SKU-002",
-      name: "Mechanical Keyboard",
-      category: "Accessories",
-      price: 22.3,
-      qty: 45,
-      status: "Active",
-      updatedAt: "2025-10-16 09:25",
-    },
-  ]);
-
+  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editedItem, setEditedItem] = useState({});
   const [search, setSearch] = useState("");
@@ -42,10 +13,48 @@ const VenderInventory = () => {
   const [newItem, setNewItem] = useState({
     sku: "",
     name: "",
-    category: categories[0],
+    category: "",
     price: "",
     qty: "",
   });
+
+  // 🔹 تحميل بيانات المخزون عند فتح الصفحة
+  useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        setLoading(true);
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (!user) throw new Error("User not found");
+
+        // ✅ طلب API (يمكنك تعديل الرابط حسب مسارك)
+        const response = await axiosInstance.get(
+          `/products`
+        );
+
+        // 🔹 تحويل البيانات إلى الشكل المطلوب في الجدول
+        const data = response.data.map((item) => ({
+          id: item.id,
+          sku: item.sku,
+          name: item.name,
+          category: item.categoryId || "Uncategorized",
+          price: parseFloat(item.price),
+          qty: item.stock,
+          status: item.active ? "Active" : "Inactive",
+          updatedAt: new Date(item.createdAt).toLocaleString(),
+          vendorName: item.vendor?.companyName,
+        }));
+
+        setInventory(data);
+      } catch (err) {
+        console.error("Error fetching inventory:", err);
+        setError("Failed to load inventory data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInventory();
+  }, []);
 
   // 🔍 بحث
   const filteredInventory = inventory.filter(
@@ -61,13 +70,11 @@ const VenderInventory = () => {
     setEditedItem({ ...item });
   };
 
-  // ❌ إلغاء التعديل
   const handleCancel = () => {
     setEditingId(null);
     setEditedItem({});
   };
 
-  // 💾 حفظ التعديل
   const handleSave = () => {
     const updatedAt = new Date().toLocaleString();
     setInventory(
@@ -79,19 +86,8 @@ const VenderInventory = () => {
     alert(`✅ Updated item: ${editedItem.name}`);
   };
 
-  // ➕ فتح نافذة إضافة مادة جديدة
-  const handleAddNew = () => {
-    setNewItem({
-      sku: "",
-      name: "",
-      category: categories[0],
-      price: "",
-      qty: "",
-    });
-    setShowModal(true);
-  };
+  const handleAddNew = () => setShowModal(true);
 
-  // 💾 حفظ المادة الجديدة
   const handleSaveNew = () => {
     if (!newItem.name || !newItem.sku || !newItem.price || !newItem.qty) {
       alert("⚠️ Please fill all required fields.");
@@ -113,11 +109,34 @@ const VenderInventory = () => {
     alert(`✅ Added new item: ${newItem.name}`);
   };
 
+  // ⏳ حالة التحميل
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-80 text-gray-600">
+        <span className="animate-pulse">Loading inventory...</span>
+      </div>
+    );
+  }
+
+  // ⚠️ في حالة الخطأ
+  if (error) {
+    return (
+      <div className="text-center text-red-500 font-medium mt-10">{error}</div>
+    );
+  }
+
   return (
     <div className="p-6">
       {/* العنوان + البحث + زر الإضافة */}
       <div className="flex flex-wrap justify-between items-center mb-5">
-        <h2 className="text-xl font-bold text-gray-800">Vendor Inventory</h2>
+        <h2 className="text-xl font-bold text-gray-800">
+          Vendor Inventory
+          {inventory.length > 0 && (
+            <span className="ml-2 text-sm text-gray-500">
+              ({inventory.length} items)
+            </span>
+          )}
+        </h2>
 
         <div className="flex items-center gap-3">
           <input
@@ -156,71 +175,13 @@ const VenderInventory = () => {
               <tr key={item.id} className="hover:bg-gray-50 transition-all">
                 <td className="border px-3 py-2">{item.sku}</td>
                 <td className="border px-3 py-2">{item.name}</td>
-
-                {/* الفئة */}
                 <td className="border px-3 py-2 text-center">
-                  {editingId === item.id ? (
-                    <select
-                      value={editedItem.category}
-                      onChange={(e) =>
-                        setEditedItem({
-                          ...editedItem,
-                          category: e.target.value,
-                        })
-                      }
-                      className="border rounded px-2 py-1 text-sm"
-                    >
-                      {categories.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    item.category
-                  )}
+                  {item.category}
                 </td>
-
-                {/* السعر */}
                 <td className="border px-3 py-2 text-center">
-                  {editingId === item.id ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editedItem.price}
-                      onChange={(e) =>
-                        setEditedItem({
-                          ...editedItem,
-                          price: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-20 text-center border rounded px-1 py-0.5 text-sm"
-                    />
-                  ) : (
-                    `$${item.price.toFixed(2)}`
-                  )}
+                  ${item.price.toFixed(2)}
                 </td>
-
-                {/* الكمية */}
-                <td className="border px-3 py-2 text-center">
-                  {editingId === item.id ? (
-                    <input
-                      type="number"
-                      value={editedItem.qty}
-                      onChange={(e) =>
-                        setEditedItem({
-                          ...editedItem,
-                          qty: parseInt(e.target.value),
-                        })
-                      }
-                      className="w-16 text-center border rounded px-1 py-0.5 text-sm"
-                    />
-                  ) : (
-                    item.qty
-                  )}
-                </td>
-
-                {/* الحالة */}
+                <td className="border px-3 py-2 text-center">{item.qty}</td>
                 <td className="border px-3 py-2 text-center">
                   <span
                     className={`px-2 py-1 rounded text-xs font-semibold ${
@@ -232,149 +193,33 @@ const VenderInventory = () => {
                     {item.status}
                   </span>
                 </td>
-
-                {/* آخر تحديث */}
                 <td className="border px-3 py-2 text-center text-gray-500 text-xs">
                   {item.updatedAt}
                 </td>
-
-                {/* الأكشن */}
                 <td className="border px-3 py-2 text-center">
-                  {editingId === item.id ? (
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={handleSave}
-                        className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs flex items-center gap-1"
-                      >
-                        <Check size={14} /> Save
-                      </button>
-                      <button
-                        onClick={handleCancel}
-                        className="px-2 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 text-xs flex items-center gap-1"
-                      >
-                        <X size={14} /> Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1 mx-auto"
-                    >
-                      <Edit3 size={14} /> Edit
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1 mx-auto"
+                  >
+                    <Edit3 size={14} /> Edit
+                  </button>
                 </td>
               </tr>
             ))}
 
             {filteredInventory.length === 0 && (
               <tr>
-                <td colSpan="8" className="text-center text-gray-500 py-6 italic">
-                  No matching items found.
+                <td
+                  colSpan="8"
+                  className="text-center text-gray-500 py-6 italic"
+                >
+                  No items found.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-
-      {/* نافذة إضافة مادة جديدة */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl border w-[400px]">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h3 className="font-semibold text-gray-800">Add New Item</h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-500 hover:text-gray-800"
-              >
-                ✖
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3 text-sm">
-              <div>
-                <label className="font-medium">SKU</label>
-                <input
-                  type="text"
-                  value={newItem.sku}
-                  onChange={(e) =>
-                    setNewItem({ ...newItem, sku: e.target.value })
-                  }
-                  className="w-full border rounded px-2 py-1 mt-1"
-                />
-              </div>
-              <div>
-                <label className="font-medium">Name</label>
-                <input
-                  type="text"
-                  value={newItem.name}
-                  onChange={(e) =>
-                    setNewItem({ ...newItem, name: e.target.value })
-                  }
-                  className="w-full border rounded px-2 py-1 mt-1"
-                />
-              </div>
-              <div>
-                <label className="font-medium">Category</label>
-                <select
-                  value={newItem.category}
-                  onChange={(e) =>
-                    setNewItem({ ...newItem, category: e.target.value })
-                  }
-                  className="w-full border rounded px-2 py-1 mt-1"
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="font-medium">Price ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newItem.price}
-                    onChange={(e) =>
-                      setNewItem({ ...newItem, price: e.target.value })
-                    }
-                    className="w-full border rounded px-2 py-1 mt-1"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="font-medium">Qty</label>
-                  <input
-                    type="number"
-                    value={newItem.qty}
-                    onChange={(e) =>
-                      setNewItem({ ...newItem, qty: e.target.value })
-                    }
-                    className="w-full border rounded px-2 py-1 mt-1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t p-3 flex justify-end gap-2">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveNew}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

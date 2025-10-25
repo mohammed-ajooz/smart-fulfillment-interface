@@ -1,11 +1,21 @@
 import { useState, useEffect } from "react";
-import { Bell, RefreshCcw } from "lucide-react";
+import { Bell, RefreshCcw, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const TopNavbar = () => {
   const [minutesAgo, setMinutesAgo] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isStale, setIsStale] = useState(false);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
+  // 🧩 جلب بيانات المستخدم من localStorage
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) setUser(JSON.parse(savedUser));
+  }, []);
+
+  // 🔁 مؤقت لحالة التزامن
   useEffect(() => {
     const startTime = Date.now();
     const interval = setInterval(() => {
@@ -21,6 +31,20 @@ const TopNavbar = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // 🚪 دالة تسجيل الخروج
+  const handleLogout = () => {
+    // تأكيد
+    const confirmLogout = window.confirm("Are you sure you want to logout?");
+    if (!confirmLogout) return;
+
+    // حذف البيانات من localStorage
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    // إعادة التوجيه إلى صفحة الدخول
+    navigate("/login");
+  };
 
   return (
     <header className="w-full backdrop-blur-md bg-white/80 border-b border-gray-200 shadow-sm sticky top-0 z-40">
@@ -68,13 +92,30 @@ const TopNavbar = () => {
           </div>
 
           {/* المستخدم */}
-          <div className="flex items-center gap-2 cursor-pointer hover:opacity-80">
-            <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-semibold">
-              M
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 cursor-pointer hover:opacity-80">
+              <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-semibold">
+                {user?.name ? user.name.charAt(0).toUpperCase() : "?"}
+              </div>
+              <div className="flex flex-col leading-tight">
+                <span className="font-medium text-gray-700 text-sm">
+                  {user?.name || "Guest"}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {user?.role || "No Role"}
+                </span>
+              </div>
             </div>
-            <span className="font-medium text-gray-700 text-sm">
-              Mohammed Ajooz
-            </span>
+
+            {/* زر تسجيل الخروج */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm font-medium border border-red-300 px-2 py-1 rounded-md transition hover:bg-red-50"
+              title="Logout"
+            >
+              <LogOut size={14} />
+              Logout
+            </button>
           </div>
         </div>
       </div>

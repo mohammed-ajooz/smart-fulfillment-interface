@@ -14,6 +14,16 @@ const SmartSidebar = () => {
   const [minutesAgo, setMinutesAgo] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isStale, setIsStale] = useState(false);
+  const [userRole, setUserRole] = useState("GUEST"); // 👈 الدور الحالي
+
+  // 🧩 قراءة الدور من localStorage
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser);
+      setUserRole(parsed.role || "GUEST");
+    }
+  }, []);
 
   // 🏢 قائمة الفروع المتاحة
   const branches = ["Erbil Main Warehouse", "Duhok Branch", "Sulaymaniyah Hub"];
@@ -31,16 +41,16 @@ const SmartSidebar = () => {
       setTimeout(() => setIsUpdating(false), 1000);
       setIsStale(mins >= 10);
     }, 60000);
-
     return () => clearInterval(interval);
   }, []);
 
-  // 💼 الأنظمة
+  // 💼 جميع الأنظمة (قبل التصفية)
   const systems = [
     {
       id: "warehouse",
       label: "🏭 Warehouse",
       color: "text-blue-600",
+      roles: ["warehouse"],
       links: [
         { to: "/Inbound", label: "Inbound", icon: "🚚" },
         { to: "/Outbound", label: "Outbound", icon: "🚛" },
@@ -50,9 +60,10 @@ const SmartSidebar = () => {
       ],
     },
     {
-      id: "operation",
-      label: "⚙️ Operation",
+      id: "dispatching",
+      label: "⚙️ Dispatching",
       color: "text-purple-600",
+      roles: ["ADMIN", "STAFF", "DRIVER"],
       links: [
         { to: "/SalesOrders", label: "Sales Orders", icon: "🧾" },
         { to: "/POOrders", label: "PO Orders", icon: "🛒" },
@@ -65,6 +76,7 @@ const SmartSidebar = () => {
       id: "hr",
       label: "👥 HR",
       color: "text-green-600",
+      roles: ["ADMIN", "FINANCE"],
       links: [
         { to: "/employees", label: "Employees", icon: "🧑‍💼" },
         { to: "/attendance", label: "Attendance", icon: "🕒" },
@@ -72,19 +84,25 @@ const SmartSidebar = () => {
       ],
     },
     {
-      id: "ve",
+      id: "vendor",
       label: "🏪 Vendor",
-      color: "text-green-600",
+      color: "text-yellow-600",
+      roles: ["ADMIN", "VENDOR"],
       links: [
-        { to: "/VenderOverView", label: "Over View", icon: "📊" },
-          { to: "/VenderInventory", label: "Inventory Item", icon: "📦" },
-        { to: "/VenderOrders", label: "VenderOrders", icon: "🧾" },
+        { to: "/VenderOverView", label: "Overview", icon: "📊" },
+        { to: "/VenderInventory", label: "Inventory Items", icon: "📦" },
+        { to: "/VenderOrders", label: "Vendor Orders", icon: "🧾" },
         { to: "/ExpressShipping", label: "Express Shipping", icon: "🚀" },
-        { to: "/returnedOrders", label: "Returned Order", icon: "↩️" },
+        { to: "/returnedOrders", label: "Returned Orders", icon: "↩️" },
         { to: "/finance", label: "Finance", icon: "💰" },
       ],
     },
   ];
+
+  // ✅ تصفية الأنظمة حسب الدور
+  const visibleSystems = systems.filter((sys) =>
+    sys.roles.includes(userRole)
+  );
 
   return (
     <aside className="w-64 bg-white shadow-lg border-r flex flex-col">
@@ -94,7 +112,7 @@ const SmartSidebar = () => {
         SmartLogix
       </div>
 
-      {/* 🏢 الفرع الحالي مع القائمة المنسدلة */}
+      {/* 🏢 الفرع */}
       <div className="relative bg-blue-50 px-4 py-2 border-b border-blue-100">
         <button
           onClick={() => setBranchDropdownOpen(!branchDropdownOpen)}
@@ -106,8 +124,9 @@ const SmartSidebar = () => {
           </div>
           <ChevronDown
             size={14}
-            className={`transition-transform ${branchDropdownOpen ? "rotate-180" : ""
-              }`}
+            className={`transition-transform ${
+              branchDropdownOpen ? "rotate-180" : ""
+            }`}
           />
         </button>
 
@@ -119,10 +138,12 @@ const SmartSidebar = () => {
                 onClick={() => {
                   setActiveBranch(branch);
                   setBranchDropdownOpen(false);
-                  // 🚀 لاحقًا: استدعاء API لتغيير الفرع النشط
                 }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${branch === activeBranch ? "text-blue-700 font-semibold" : ""
-                  }`}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${
+                  branch === activeBranch
+                    ? "text-blue-700 font-semibold"
+                    : "text-gray-700"
+                }`}
               >
                 {branch}
               </button>
@@ -134,39 +155,47 @@ const SmartSidebar = () => {
       {/* 🏠 Dashboard */}
       <Link
         to="/"
-        className={`mx-3 mt-3 flex items-center justify-between px-3 py-2 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition-all ${location.pathname === "/" ? "bg-indigo-100" : ""
-          }`}
+        className={`mx-3 mt-3 flex items-center justify-between px-3 py-2 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition-all ${
+          location.pathname === "/" ? "bg-indigo-100" : ""
+        }`}
       >
         <div className="flex items-center gap-2">
           🏠 <span>Dashboard</span>
         </div>
         <div
-          className={`flex items-center justify-center w-4 h-4 rounded-full ${isStale
+          className={`flex items-center justify-center w-4 h-4 rounded-full ${
+            isStale
               ? "bg-red-500"
               : isUpdating
-                ? "bg-green-400 animate-pulse"
-                : "bg-blue-400"
-            }`}
+              ? "bg-green-400 animate-pulse"
+              : "bg-blue-400"
+          }`}
           title={
             isStale
               ? `⚠️ No sync for ${minutesAgo} min`
-              : `Last sync ${minutesAgo === 0 ? "just now" : `${minutesAgo} min ago`
-              }`
+              : `Last sync ${
+                  minutesAgo === 0 ? "just now" : `${minutesAgo} min ago`
+                }`
           }
         >
           <RefreshCcw
             size={10}
-            className={`text-white ${isUpdating ? "rotate-180 transition-transform" : ""
-              }`}
+            className={`text-white ${
+              isUpdating ? "rotate-180 transition-transform" : ""
+            }`}
           />
         </div>
       </Link>
 
-      {/* 🔹 القوائم */}
+      {/* 🔹 الأنظمة */}
       <nav className="flex-1 overflow-y-auto p-3">
-        {systems.map((sys) => (
+        {visibleSystems.length === 0 && (
+          <p className="text-center text-gray-400 text-sm">
+            No modules available for your role.
+          </p>
+        )}
+        {visibleSystems.map((sys) => (
           <div key={sys.id} className="mb-3">
-            {/* عنوان النظام */}
             <button
               onClick={() =>
                 setOpenSystem(openSystem === sys.id ? null : sys.id)
@@ -181,17 +210,17 @@ const SmartSidebar = () => {
               )}
             </button>
 
-            {/* روابط النظام */}
             {openSystem === sys.id && (
               <div className="ml-5 mt-2 space-y-1 transition-all">
                 {sys.links.map((link) => (
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-all ${location.pathname === link.to
+                    className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-all ${
+                      location.pathname === link.to
                         ? "bg-blue-100 text-blue-700 font-medium"
                         : "text-gray-700 hover:bg-gray-100"
-                      }`}
+                    }`}
                   >
                     <span>{link.icon}</span>
                     {link.label}
@@ -203,7 +232,7 @@ const SmartSidebar = () => {
         ))}
       </nav>
 
-      {/* 🔹 الفوتر */}
+      {/* الفوتر */}
       <div className="p-3 text-center text-xs text-gray-400 border-t">
         © 2025 SmartLogix
       </div>
