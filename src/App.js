@@ -4,6 +4,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 
+//dashboards
+import AdminDashboard from "./pages/dashboards/AdminDashboard";
+import VendorDashboard from "./pages/dashboards/VendorDashboard";
+
+
 // Warehouse pages
 import Dashboard from "./pages/Dashboard";
 import Inbound from "./pages/warehouse/Inbound";
@@ -41,7 +46,9 @@ function App() {
                 <Layout>
                   <Routes>
                     {/* Warehouse Routes */}
-                    <Route path="/Dashboard" element={<Dashboard />} />
+                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route path="/vendor" element={<VendorDashboard />} />
+                    
                     <Route path="/Inbound" element={<Inbound />} />
                     <Route path="/Outbound" element={<Outbound />} />
                     <Route path="/InventoryBalance" element={<InventoryBalance />} />
